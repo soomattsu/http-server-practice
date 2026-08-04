@@ -68,10 +68,19 @@ func GetDocumentByIdHandler(w http.ResponseWriter, req *http.Request) {
 // req bodyのJSON文字列をデコードし、新規Documentとしてグローバルなデータストアに追加する
 func PostDocumentHandler(w http.ResponseWriter, req *http.Request) {
 	// req bodyのJSON文字列をデコード
+	const jsonMaxBytes = 1024
+	maxBytesReader := http.MaxBytesReader(w, req.Body, jsonMaxBytes)
 	var doc store.Document
-	if err := json.NewDecoder(req.Body).Decode(&doc); err != nil {
-		log.Printf("client error: sent invalid json string: %v", err)
-		http.Error(w, "client error: sent invalid document data", http.StatusBadRequest)
+	if err := json.NewDecoder(maxBytesReader).Decode(&doc); err != nil {
+		var expectedErr *http.MaxBytesError
+		switch {
+		case errors.As(err, &expectedErr):
+			log.Printf("client error: sent too large json string(limit %v bytes)", expectedErr.Limit)
+			http.Error(w, "client error: sent too large document data", http.StatusRequestEntityTooLarge)
+		default:
+			log.Printf("client error: sent invalid json string: %v", err)
+			http.Error(w, "client error: sent invalid document data", http.StatusBadRequest)
+		}
 		return
 	}
 	if err := validatePostedDoc(&doc); err != nil {
