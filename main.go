@@ -18,10 +18,10 @@ func main() {
 	// - DefaultServeMux: net/httpパッケージにあらかじめ用意されている、グローバルなマルチプレクサ（ServeMux）のインスタンス
 	// - マルチプレクサ(Mux): N個の入力から、選択信号を元に、1個の出力を返す機構
 	//   - 複数の入力(pattern, handler)から、選択信号(req)を元に、1個の出力（res）を返す機構
-	http.HandleFunc("/healthz", handler.HealthzHandler)
-	http.HandleFunc("GET /documents", handler.GetDocumentsHandler)
-	http.HandleFunc("POST /documents", handler.PostDocumentHandler)
-	http.HandleFunc("GET /documents/{id}", handler.GetDocumentByIdHandler)
+	http.HandleFunc("/healthz", handler.Healthz)
+	http.HandleFunc("GET /documents", handler.GetDocuments)
+	http.HandleFunc("POST /documents", handler.PostDocument)
+	http.HandleFunc("GET /documents/{id}", handler.GetDocumentByID)
 	http.HandleFunc("/superslow", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("start some slow procedure")
 		time.Sleep(30 * time.Second)
@@ -62,12 +62,12 @@ func main() {
 
 	select {
 	case <-sigCtx.Done():
-		log.Println("graceful shutdown: started")
+		log.Println("Graceful shutdown: started")
 		// ECS/K8sなどplatform側のgracePeriodより短く設定することで、外からSIGKILLされる前にログが出せる
 		sdCtx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 		defer cancel()
 		if err := s.Shutdown(sdCtx); err != nil {
-			log.Printf("graceful shutdown: error %v", err)
+			log.Printf("Graceful shutdown: error %v", err)
 		}
 	case err := <-errCh:
 		log.Fatalf("HTTP server ListenAndServe failed: %v", err)

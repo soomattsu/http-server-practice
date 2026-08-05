@@ -1,3 +1,4 @@
+// store はデータモデルと、シードデータを持つデフォルトのデータストアを提供する。
 package store
 
 import (
@@ -6,19 +7,22 @@ import (
 	"sync"
 )
 
+// Document はこのハンズオンで利用するデータモデルを表す。
 type Document struct {
 	Author string `json:"author"`
 	Body   string `json:"body"`
 	Status string `json:"status"`
 }
 
-type DocumentStorage struct {
+// Documents はDocumentを格納する構造体。
+type Documents struct {
 	documents map[int]Document
 	mu        sync.RWMutex
 	counter   int
 }
 
-func (ds *DocumentStorage) GetAll() []Document {
+// GetAll はDocumentsが持つDocumentをすべて返す。
+func (ds *Documents) GetAll() []Document {
 	ds.mu.RLock()
 	defer ds.mu.RUnlock()
 	dlist := make([]Document, 0, len(ds.documents))
@@ -28,7 +32,8 @@ func (ds *DocumentStorage) GetAll() []Document {
 	return dlist
 }
 
-func (ds *DocumentStorage) Get(id int) (Document, error) {
+// Get はDocumentsからidに対応するDocumentを1つ返す。
+func (ds *Documents) Get(id int) (Document, error) {
 	ds.mu.RLock()
 	defer ds.mu.RUnlock()
 	doc, ok := ds.documents[id]
@@ -38,17 +43,19 @@ func (ds *DocumentStorage) Get(id int) (Document, error) {
 	return doc, nil
 }
 
-func (ds *DocumentStorage) Add(doc Document) int {
+// Add はDocumentsに新しいDocumentを追加してidを付与する。
+func (ds *Documents) Add(doc Document) int {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
 	ds.counter++
-	docId := ds.counter
-	ds.documents[docId] = doc
-	return docId
+	docID := ds.counter
+	ds.documents[docID] = doc
+	return docID
 }
 
 var (
-	DefaultDocumentStorage = &DocumentStorage{
+	// DefaultDocuments は、シードデータを持つデフォルトのDocumentsの値で、メモリ上に保持される。
+	DefaultDocuments = &Documents{
 		documents: map[int]Document{
 			1: {Author: "Tanaka", Body: "First one yeahhhh", Status: "public"},
 			2: {Author: "Sato", Body: "Broken doc foo bar baz", Status: "private"},
@@ -57,5 +64,6 @@ var (
 		mu:      sync.RWMutex{},
 		counter: 3,
 	}
+	// ErrNotFound は、指定されたidのDocumentが存在しなかった場合にGetからwrapして返される。
 	ErrNotFound = errors.New("not found")
 )
