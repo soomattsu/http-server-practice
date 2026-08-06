@@ -21,15 +21,10 @@ func (e *IncompleteDocumentError) Error() string {
 	return fmt.Sprintf("document field cannot be empty: %v", e.Fields)
 }
 
-// HealthzHandler はAPIのヘルスチェックのために呼ばれ、常に200を返す。
-func Healthz(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-}
-
 // GetDocuments はグローバルなデータストアからDocument一覧を取得してJSONエンコードし、bodyとして返す。
 func GetDocuments(w http.ResponseWriter, _ *http.Request) {
 	docJSON, err := json.Marshal(store.DefaultDocuments.GetAll())
-	if err != nil { // デコード失敗時は500を返す （ex. json.Marshal(make(chan int))）
+	if err != nil { // エンコード失敗時は500を返す （ex. json.Marshal(make(chan int))）
 		log.Printf("Server error: document list is broken: %v", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return

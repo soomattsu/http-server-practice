@@ -59,18 +59,13 @@ func tryRedis(cfg *config) {
 		log.Fatalf("Failed to health-check of Redis: %v", err)
 	}
 	log.Printf("Success to login Redis, %v!", pong)
-
 }
 
-func main() {
-	cfg := loadEnv()
-	tryMySQL(cfg)
-	tryRedis(cfg)
+func registerPhase1Handler() {
 	// 任意のpathに対応するhandler関数を"DefaultServeMux"へ登録（ルーティング設定）
 	// - DefaultServeMux: net/httpパッケージにあらかじめ用意されている、グローバルなマルチプレクサ（ServeMux）のインスタンス
 	// - マルチプレクサ(Mux): N個の入力から、選択信号を元に、1個の出力を返す機構
 	//   - 複数の入力(pattern, handler)から、選択信号(req)を元に、1個の出力（res）を返す機構
-	http.HandleFunc("/healthz", handler.Healthz)
 	http.HandleFunc("GET /documents", handler.GetDocuments)
 	http.HandleFunc("POST /documents", handler.PostDocument)
 	http.HandleFunc("GET /documents/{id}", handler.GetDocumentByID)
@@ -80,6 +75,24 @@ func main() {
 		log.Println("complete some slow procedure")
 		w.WriteHeader(200)
 	})
+}
+
+func registerPhase2Handler() {
+	http.HandleFunc("/healthz", handler.Healthz)
+	http.HandleFunc("GET /posts", handler.GetPosts)
+	http.HandleFunc("GET /posts/{id}", handler.GetPostByID)
+	http.HandleFunc("POST /posts", handler.CreatePost)
+	http.HandleFunc("PATCH /posts/{id}", handler.UpdatePost)
+	http.HandleFunc("DELETE /posts/{id}", handler.DeletePost)
+}
+
+func main() {
+	cfg := loadEnv()
+	tryMySQL(cfg)
+	tryRedis(cfg)
+
+	registerPhase1Handler()
+	registerPhase2Handler()
 
 	// http serverの初期化。Handlerフィールドがnilなので、ルーティングにはDefaultServeMuxが使われる
 	// タイムアウトはコネクションごとに有効
