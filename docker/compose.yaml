@@ -11,6 +11,7 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      TZ: Asia/Tokyo
     healthcheck:
       # https://tech.legalscape.co.jp/entry/mysql-healthcheck
       test: ["CMD", "mysqladmin", "ping", "--protocol=TCP"]

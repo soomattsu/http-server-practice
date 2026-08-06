@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -12,43 +11,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/caarlos0/env/v11"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/redis/go-redis/v9"
 	"github.com/soomattsu/http-server-practice/internal/handler"
+	"github.com/soomattsu/http-server-practice/internal/store"
 )
 
-type config struct {
-	MySQLDatabase string `env:"MYSQL_DATABASE,notEmpty"`
-	MySQLUser     string `env:"MYSQL_USER,notEmpty"`
-	MySQLPassword string `env:"MYSQL_PASSWORD,notEmpty"`
-	MySQLPort     string `env:"MYSQL_PORT,notEmpty"`
-	RedisPort     string `env:"REDIS_PORT,notEmpty"`
-	RedisPassword string `env:"REDIS_PASSWORD,notEmpty"`
-}
-
-func loadEnv() *config {
-	var cfg config
-	if err := env.Parse(&cfg); err != nil {
-		log.Fatalf("Failed to set parse required env vars: %v", err)
-	}
-	return &cfg
-}
-
-func tryMySQL(cfg *config) {
-	dsn := fmt.Sprintf("%v:%v@tcp(localhost:%v)/%v", cfg.MySQLUser, cfg.MySQLPassword, cfg.MySQLPort, cfg.MySQLDatabase)
-	db, err := sql.Open("mysql", dsn) // Open自体はconnectionを開かない
-	if err != nil {
-		log.Fatalf("Failed to initialize value of sql.DB: %v", err)
-	}
-	defer db.Close() // "Although it’s idiomatic to Close() the database when you’re finished with it, the sql.DB object is designed to be long-lived. Don’t Open() and Close() databases frequently."
-	if err := db.Ping(); err != nil {
-		log.Fatalf("Failed to login MySQL: %v", err)
-	}
-	log.Println("Success to login MySQL!")
-}
-
-func tryRedis(cfg *config) {
+func tryRedis(cfg *store.Config) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("localhost:%v", cfg.RedisPort),
 		Password: cfg.RedisPassword,
@@ -87,9 +55,11 @@ func registerPhase2Handler() {
 }
 
 func main() {
-	cfg := loadEnv()
-	tryMySQL(cfg)
-	tryRedis(cfg)
+	cfg := store.LoadCfg()
+	if err := store.InitMySQL(cfg); err != nil {
+		log.Fatalf("Failed to init MySQL: %v", err)
+	}
+	// tryRedis(cfg)
 
 	registerPhase1Handler()
 	registerPhase2Handler()
