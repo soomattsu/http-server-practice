@@ -59,6 +59,10 @@ func main() {
 	if err := store.InitMySQL(cfg); err != nil {
 		log.Fatalf("Failed to init MySQL: %v", err)
 	}
+	if err := store.Seed(); err != nil {
+		log.Fatalf("Failed to seed data: %v", err)
+	}
+	store.TestPreload()
 	// tryRedis(cfg)
 
 	registerPhase1Handler()
