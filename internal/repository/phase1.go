@@ -1,10 +1,24 @@
-// store はデータモデルと、シードデータを持つデフォルトのデータストアを提供する。
-package store
+package repository
 
 import (
 	"errors"
 	"fmt"
 	"sync"
+)
+
+var (
+	// DefaultDocuments は、シードデータを持つデフォルトのDocumentsの値で、メモリ上に保持される。
+	DefaultDocuments = &Documents{
+		documents: map[int]Document{
+			1: {Author: "Tanaka", Body: "First one yeahhhh", Status: "public"},
+			2: {Author: "Sato", Body: "Broken doc foo bar baz", Status: "private"},
+			3: {Author: "Nagano", Body: "Can we do something? Yes we can!", Status: "public"},
+		},
+		mu:      sync.RWMutex{},
+		counter: 3,
+	}
+	// ErrNotFound は、指定されたidのDocumentが存在しなかった場合にGetからwrapして返される。
+	ErrNotFound = errors.New("not found")
 )
 
 // Document はこのハンズオンで利用するデータモデルを表す。
@@ -52,18 +66,3 @@ func (ds *Documents) Add(doc Document) int {
 	ds.documents[docID] = doc
 	return docID
 }
-
-var (
-	// DefaultDocuments は、シードデータを持つデフォルトのDocumentsの値で、メモリ上に保持される。
-	DefaultDocuments = &Documents{
-		documents: map[int]Document{
-			1: {Author: "Tanaka", Body: "First one yeahhhh", Status: "public"},
-			2: {Author: "Sato", Body: "Broken doc foo bar baz", Status: "private"},
-			3: {Author: "Nagano", Body: "Can we do something? Yes we can!", Status: "public"},
-		},
-		mu:      sync.RWMutex{},
-		counter: 3,
-	}
-	// ErrNotFound は、指定されたidのDocumentが存在しなかった場合にGetからwrapして返される。
-	ErrNotFound = errors.New("not found")
-)

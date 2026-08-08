@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -11,67 +10,33 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/soomattsu/http-server-practice/internal/handler"
-	"github.com/soomattsu/http-server-practice/internal/store"
+	"github.com/soomattsu/http-server-practice/internal/repository"
+	"github.com/soomattsu/http-server-practice/internal/service"
 )
 
-func tryRedis(cfg *store.Config) {
-	client := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("localhost:%v", cfg.RedisPort),
-		Password: cfg.RedisPassword,
-	})
-	defer client.Close()
-	pong, err := client.Ping(context.Background()).Result()
-	if err != nil {
-		log.Fatalf("Failed to health-check of Redis: %v", err)
-	}
-	log.Printf("Success to login Redis, %v!", pong)
-}
-
-func registerPhase1Handler() {
-	// 任意のpathに対応するhandler関数を"DefaultServeMux"へ登録（ルーティング設定）
-	// - DefaultServeMux: net/httpパッケージにあらかじめ用意されている、グローバルなマルチプレクサ（ServeMux）のインスタンス
-	// - マルチプレクサ(Mux): N個の入力から、選択信号を元に、1個の出力を返す機構
-	//   - 複数の入力(pattern, handler)から、選択信号(req)を元に、1個の出力（res）を返す機構
-	http.HandleFunc("GET /documents", handler.GetDocuments)
-	http.HandleFunc("POST /documents", handler.PostDocument)
-	http.HandleFunc("GET /documents/{id}", handler.GetDocumentByID)
-	http.HandleFunc("/superslow", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("start some slow procedure")
-		time.Sleep(30 * time.Second)
-		log.Println("complete some slow procedure")
-		w.WriteHeader(200)
-	})
-}
-
-func registerPhase2Handler() {
-	http.HandleFunc("/healthz", handler.Healthz)
-	http.HandleFunc("GET /posts", handler.GetPosts)
-	http.HandleFunc("GET /posts/{id}", handler.GetPostByID)
-	http.HandleFunc("POST /posts", handler.CreatePost)
-	http.HandleFunc("PATCH /posts/{id}", handler.UpdatePost)
-	http.HandleFunc("DELETE /posts/{id}", handler.DeletePost)
-}
-
 func main() {
-	cfg := store.LoadCfg()
-	if err := store.InitMySQL(cfg); err != nil {
+	cfg := repository.LoadCfg()
+	db, err := repository.InitMySQL(cfg)
+	if err != nil {
 		log.Fatalf("Failed to init MySQL: %v", err)
 	}
-	if err := store.Seed(); err != nil {
+	if err := repository.Seed(db); err != nil {
 		log.Fatalf("Failed to seed data: %v", err)
 	}
-	store.TestPreload()
-	// tryRedis(cfg)
+	// repository.TryRedis(cfg)
 
-	registerPhase1Handler()
-	registerPhase2Handler()
+	postRepo := repository.NewPostRepo(db)
+	postService := service.NewPostService(postRepo)
+	postHandler := handler.NewPostHandler(postService)
+	router := handler.NewRouter(postHandler)
 
-	// http serverの初期化。Handlerフィールドがnilなので、ルーティングにはDefaultServeMuxが使われる
+	// http serverの初期化。
 	// タイムアウトはコネクションごとに有効
 	s := &http.Server{
 		Addr: ":8080",
+		// 自前のServeMuxを挿入。nilの場合、ルーティングにはDefaultServeMuxが使われる
+		Handler: router,
 		// req headerの読み込みに許される時間
 		ReadHeaderTimeout: 1 * time.Second,
 		// req全体の読み込みに許される時間

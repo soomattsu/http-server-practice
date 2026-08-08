@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/soomattsu/http-server-practice/internal/store"
+	"github.com/soomattsu/http-server-practice/internal/repository"
 )
 
 // IncompleteDocumentError はいずれかのfieldが空のDocumentがPOSTされた時にPostDocumentHandlerから返される。
@@ -21,9 +21,21 @@ func (e *IncompleteDocumentError) Error() string {
 	return fmt.Sprintf("document field cannot be empty: %v", e.Fields)
 }
 
+func RegisterPhase1(mux *http.ServeMux) *http.ServeMux {
+	// 任意のpathに対応するhandler関数を"ServeMux"へ登録（ルーティング設定）
+	// - DefaultServeMux: net/httpパッケージにあらかじめ用意されている、グローバルなマルチプレクサ（ServeMux）のインスタンス
+	// - マルチプレクサ(Mux): N個の入力から、選択信号を元に、1個の出力を返す機構
+	//   - 複数の入力(pattern, handler)から、選択信号(req)を元に、1個の出力（res）を返す機構
+	// - ここでは受け取ったServeMuxへ登録する
+	mux.HandleFunc("GET /documents", GetDocuments)
+	mux.HandleFunc("POST /documents", PostDocument)
+	mux.HandleFunc("GET /documents/{id}", GetDocumentByID)
+	return mux
+}
+
 // GetDocuments はグローバルなデータストアからDocument一覧を取得してJSONエンコードし、bodyとして返す。
 func GetDocuments(w http.ResponseWriter, _ *http.Request) {
-	docJSON, err := json.Marshal(store.DefaultDocuments.GetAll())
+	docJSON, err := json.Marshal(repository.DefaultDocuments.GetAll())
 	if err != nil { // エンコード失敗時は500を返す （ex. json.Marshal(make(chan int))）
 		log.Printf("Server error: document list is broken: %v", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -41,10 +53,10 @@ func GetDocumentByID(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Client error: invalid id", http.StatusBadRequest)
 		return
 	}
-	doc, err := store.DefaultDocuments.Get(docID)
+	doc, err := repository.DefaultDocuments.Get(docID)
 	if err != nil {
 		switch {
-		case errors.Is(err, store.ErrNotFound):
+		case errors.Is(err, repository.ErrNotFound):
 			log.Printf("Client error: %v", err)
 			http.Error(w, fmt.Sprintf("Client error: document[%v] not found", docID), http.StatusNotFound)
 		default:
@@ -68,7 +80,7 @@ func PostDocument(w http.ResponseWriter, req *http.Request) {
 	// req bodyのJSON文字列をデコード
 	const maxBytes = 1024
 	body := http.MaxBytesReader(w, req.Body, maxBytes)
-	var doc store.Document
+	var doc repository.Document
 	if err := json.NewDecoder(body).Decode(&doc); err != nil {
 		var expErr *http.MaxBytesError
 		switch {
@@ -93,12 +105,12 @@ func PostDocument(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	// 採番して格納
-	docID := store.DefaultDocuments.Add(doc)
+	docID := repository.DefaultDocuments.Add(doc)
 	w.Header().Set("Location", "/documents/"+strconv.Itoa(docID))
 	w.WriteHeader(http.StatusCreated)
 }
 
-func validatePostedDoc(doc *store.Document) error {
+func validatePostedDoc(doc *repository.Document) error {
 	fields := make([]string, 0, 3)
 	if doc.Author == "" {
 		fields = append(fields, "Author")
