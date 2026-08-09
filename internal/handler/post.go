@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -27,6 +28,9 @@ func (h *PostHandler) Register(mux *http.ServeMux) *http.ServeMux {
 	mux.HandleFunc("POST /posts", h.CreatePost)
 	mux.HandleFunc("PATCH /posts/{id}", h.UpdatePost)
 	mux.HandleFunc("DELETE /posts/{id}", h.DeletePost)
+	// context, connection pool実験用
+	mux.HandleFunc("GET /slowquery", h.SlowQuery)
+	mux.HandleFunc("GET /dbstats", h.DBStats)
 	return mux
 }
 
@@ -39,7 +43,7 @@ type postsOutput struct {
 }
 
 func (h *PostHandler) ListPost(w http.ResponseWriter, r *http.Request) {
-	posts, err := h.svc.ListPost()
+	posts, err := h.svc.ListPost(r.Context())
 	if err != nil {
 		log.Printf("Server error: failed to list Post %v", err)
 		http.Error(w, "Server error: failed to list all Post", http.StatusInternalServerError)
@@ -76,7 +80,7 @@ func (h *PostHandler) GetPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	post, err := h.svc.GetPost(id)
+	post, err := h.svc.GetPost(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, model.ErrPostNotFound) {
 			log.Printf("Client error: Post not found with ID[%v]: %v", id, err)
@@ -124,7 +128,7 @@ func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	postID, err := h.svc.CreatePost(model.Post{UserID: in.UserID, Body: in.Body})
+	postID, err := h.svc.CreatePost(r.Context(), model.Post{UserID: in.UserID, Body: in.Body})
 	if err != nil {
 		if errors.Is(err, model.ErrInvalidPostInput) {
 			log.Printf("Client error: sent invalid Post: %v", err)
@@ -163,7 +167,7 @@ func (h *PostHandler) UpdatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.svc.UpdatePost(id, in.Body); err != nil {
+	if err := h.svc.UpdatePost(r.Context(), id, in.Body); err != nil {
 		if errors.Is(err, model.ErrInvalidPostInput) {
 			log.Printf("Client error: sent invalid request: body is empry: %v", err)
 			http.Error(w, "Client error: sent invalid request: new body required", http.StatusBadRequest)
@@ -188,13 +192,61 @@ func (h *PostHandler) DeletePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.svc.DeletePost(id); err != nil {
+	if err := h.svc.DeletePost(r.Context(), id); err != nil {
 		log.Printf("Server error: failed to DELETE Post with ID[%v]: %v", id, err)
 		http.Error(w, "Server error: failed to delete Post", http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *PostHandler) SlowQuery(w http.ResponseWriter, r *http.Request) {
+	// DB側のSleep秒数指定
+	sleep, err := strconv.Atoi(r.URL.Query().Get("sleep"))
+	if err != nil {
+		sleep = 5
+	}
+
+	// request ctxのタイムアウト秒数指定
+	to, err := strconv.Atoi(r.URL.Query().Get("timeout"))
+	if err != nil {
+		to = 2
+	}
+	/*
+		requestのctx（net/httpがリクエストごとに自動作成）を親として、タイムアウトを持つ子ctxを作る
+		この子ctxは指定された秒数の後、必ずキャンセルされる
+		- r.Context()で受け取れるctxの性質: "canceled when the client’s connection closes, the request is canceled (with HTTP/2), or when the ServeHTTP method returns."
+		キャンセルされたreqの中でDBコネクションを掴んでいた場合、そのコネクションはcloseされる（コネクション待ちしているgoroutineがあれば張り直される）
+	*/
+	ctx, cancel := context.WithTimeout(r.Context(), time.Duration(to)*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	if err := h.svc.Sleep(ctx, sleep); err != nil {
+		// WithTimeout()に渡した秒数が経過すると、context.deadlineExceededError
+		log.Printf("Sleep failed after %v: type=%T value=%v", time.Since(start), err, err)
+		http.Error(w, "Server error: slow query failed", http.StatusInternalServerError)
+		return
+	}
+	log.Printf("SlowQuery finished in %v", time.Since(start))
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *PostHandler) DBStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := h.svc.DBStats()
+	if err != nil {
+		log.Printf("Server error: failed to get DB stats: %v", err)
+		http.Error(w, "Server error: failed to get DB stats", http.StatusInternalServerError)
+		return
+	}
+	out, err := json.Marshal(stats)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Write(out)
 }
 
 // validateID はpath parameter: idが正の整数であることを検証する。
