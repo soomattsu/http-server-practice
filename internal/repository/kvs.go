@@ -8,15 +8,15 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func TryRedis(cfg *Config) {
+func InitRedis(cfg *Config) (*redis.Client, error) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("localhost:%v", cfg.RedisPort),
 		Password: cfg.RedisPassword,
 	})
-	defer client.Close()
-	pong, err := client.Ping(context.Background()).Result()
-	if err != nil {
-		log.Fatalf("Failed to health-check of Redis: %v", err)
+	// go-redisも、sql.DB同様コネクションプールを内部に持ち、lazy connection（pingするまでconnを張らない）
+	if err := client.Ping(context.Background()).Err(); err != nil {
+		return nil, fmt.Errorf("failed to ping Redis: %v", err)
 	}
-	log.Printf("Success to login Redis, %v!", pong)
+	log.Println("Success to open Redis connection!")
+	return client, nil
 }

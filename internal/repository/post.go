@@ -10,6 +10,8 @@ import (
 	"gorm.io/gorm"
 )
 
+// コンストラクタ（NewPostRepo）がcomposite rootから呼ばれる想定でexportされているので、それが返す具象型もexportする
+// unexportしてもコンパイルは通るが、not idiomaticな書き方
 type PostRepo struct {
 	db *gorm.DB
 }
@@ -17,6 +19,13 @@ type PostRepo struct {
 func NewPostRepo(db *gorm.DB) *PostRepo {
 	return &PostRepo{db: db}
 }
+
+/*
+ * Postを取得する時にPost.Tagsを含めるかどうかは、APIの仕様次第
+ * 慣例的には、relation fieldの扱いは以下の通りか
+ * - FindAll: 含めないことが多い。Post全件のTagsを併せて返すことになりペイロードが膨らむ。
+ * - FindByID: 含めることが多い。一件のPostの詳細・全情報を返すためのメソッドなので。
+ */
 
 func (r *PostRepo) FindAll(ctx context.Context) ([]model.Post, error) {
 	var posts []model.Post

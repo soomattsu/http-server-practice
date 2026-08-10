@@ -8,6 +8,8 @@ type Post struct {
 	gorm.Model
 	Body string `gorm:"not null"`
 	// gormが<所有者の型名>+<所有者のPK名>を探し、見つかったfieldをFKとして採用する（FK制約の適用はAutoMigrate()が行う）
-	UserID uint   `gorm:"not null"`
-	Tags   []*Tag `gorm:"many2many:post_tags;"`
+	UserID uint `gorm:"not null"`
+	// 今回のスコープでは、DBを直接叩いた時にのみrelationとして挿入される
+	// APIからPostを作成/取得する際には扱わないので、JSON encode/decode時にTagsは無視してOK
+	Tags []*Tag `gorm:"many2many:post_tags;" json:"-"`
 }
