@@ -31,15 +31,15 @@ type postCache interface {
 	DeletePost(ctx context.Context, id uint) error
 }
 
-func NewPostService(repo postRepository, cache postCache) *PostService {
-	return &PostService{repo: repo, cache: cache}
-}
-
-// PostService はinterface(postRepository)を経由してrepositoryへアクセスする
+// PostService はinterface(postRepository, postCache)を経由してrepositoryへアクセスする
 // handler -> serviceにおいてはservice差し替えは未定で、具象型として直接呼ばれるので、exportする
 type PostService struct {
 	repo  postRepository
 	cache postCache
+}
+
+func NewPostService(repo postRepository, cache postCache) *PostService {
+	return &PostService{repo: repo, cache: cache}
 }
 
 func (s *PostService) ListPost(ctx context.Context) ([]model.Post, error) {
