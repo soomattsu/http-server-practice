@@ -1,4 +1,4 @@
-package repository
+package platform
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 
 func InitRedis(cfg *Config) (*redis.Client, error) {
 	client := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("localhost:%v", cfg.RedisPort),
+		Addr:     fmt.Sprintf("%v:%v", cfg.RedisHost, cfg.RedisPort),
 		Password: cfg.RedisPassword,
 	})
 	// go-redisも、sql.DB同様コネクションプールを内部に持ち、lazy connection（pingするまでconnを張らない）

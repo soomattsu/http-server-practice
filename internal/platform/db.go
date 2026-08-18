@@ -1,4 +1,4 @@
-package repository
+package platform
 
 import (
 	"fmt"
@@ -11,9 +11,10 @@ import (
 
 func InitMySQL(cfg *Config) (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
-		"%v:%v@tcp(localhost:%v)/%v?charset=utf8mb4&parseTime=True&loc=Local",
+		"%v:%v@tcp(%v:%v)/%v?charset=utf8mb4&parseTime=True&loc=Local",
 		cfg.MySQLUser,
 		cfg.MySQLPassword,
+		cfg.MySQLHost,
 		cfg.MySQLPort,
 		cfg.MySQLDatabase,
 	)

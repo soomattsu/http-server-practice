@@ -1,3 +1,4 @@
 SESSION.md
-/api-server
+/post-api
+/document-api
 docker/.env

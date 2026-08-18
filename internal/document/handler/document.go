@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/soomattsu/http-server-practice/internal/repository"
+	"github.com/soomattsu/http-server-practice/internal/document/repository"
 )
 
 // IncompleteDocumentError はいずれかのfieldが空のDocumentがPOSTされた時にPostDocumentHandlerから返される。
@@ -21,7 +21,7 @@ func (e *IncompleteDocumentError) Error() string {
 	return fmt.Sprintf("document field cannot be empty: %v", e.Fields)
 }
 
-func RegisterPhase1(mux *http.ServeMux) *http.ServeMux {
+func RegisterDocument(mux *http.ServeMux) *http.ServeMux {
 	// 任意のpathに対応するhandler関数を"ServeMux"へ登録（ルーティング設定）
 	// - DefaultServeMux: net/httpパッケージにあらかじめ用意されている、グローバルなマルチプレクサ（ServeMux）のインスタンス
 	// - マルチプレクサ(Mux): N個の入力から、選択信号を元に、1個の出力を返す機構

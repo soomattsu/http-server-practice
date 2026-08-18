@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/soomattsu/http-server-practice/internal/model"
-	"github.com/soomattsu/http-server-practice/internal/service"
+	"github.com/soomattsu/http-server-practice/internal/post/service"
 )
 
 type PostHandler struct {

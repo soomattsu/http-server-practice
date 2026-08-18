@@ -10,18 +10,19 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/soomattsu/http-server-practice/internal/handler"
-	"github.com/soomattsu/http-server-practice/internal/repository"
-	"github.com/soomattsu/http-server-practice/internal/service"
+	"github.com/soomattsu/http-server-practice/internal/platform"
+	"github.com/soomattsu/http-server-practice/internal/post/handler"
+	"github.com/soomattsu/http-server-practice/internal/post/repository"
+	"github.com/soomattsu/http-server-practice/internal/post/service"
 )
 
 func main() {
-	cfg := repository.LoadCfg()
+	cfg := platform.LoadCfg()
 
 	// *gorm.DB(*sql.DB)の寿命＝プロセスの寿命というライブラリ側設計なので、通常のサーバーアプリでは明示的にCloseしなくていい
 	// - The returned DB is safe for concurrent use by multiple goroutines and maintains its own pool of idle connections. Thus, the Open function should be called just once. It is rarely necessary to close a DB.
 	// 逆に、プロセスの寿命 > コネクションプールの寿命なら、明示的にCloseしないとleakが生じる
-	db, err := repository.InitMySQL(cfg)
+	db, err := platform.InitMySQL(cfg)
 	if err != nil {
 		log.Fatalf("Failed to init MySQL: %v", err)
 	}
@@ -32,7 +33,7 @@ func main() {
 	// *redis.Clientの寿命＝プロセスの寿命というライブラリ側設計なので、通常のサーバーアプリでは明示的にCloseしなくていい
 	// - It is rare to Close a Client, as the Client is meant to be long-lived and shared between many goroutines.
 	// 逆に、プロセスの寿命 > コネクションプールの寿命なら、明示的にCloseしないとleakが生じる
-	kvs, err := repository.InitRedis(cfg)
+	kvs, err := platform.InitRedis(cfg)
 	if err != nil {
 		log.Fatalf("Failed to init Redis: %v", err)
 	}

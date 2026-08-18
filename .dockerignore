@@ -1,0 +1,8 @@
+# build contextに渡さないもの
+.git
+.github
+.claude
+# .envファイルは、build contextには渡らないが、compose CLIが参照してyamlへ変数展開する
+docker/.env
+/post-api
+/document-api
