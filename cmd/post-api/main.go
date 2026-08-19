@@ -29,18 +29,20 @@ func main() {
 	if err := repository.Seed(db); err != nil {
 		log.Fatalf("Failed to seed data: %v", err)
 	}
+	postRepo := repository.NewPostRepo(db)
 
 	// *redis.Clientの寿命＝プロセスの寿命というライブラリ側設計なので、通常のサーバーアプリでは明示的にCloseしなくていい
 	// - It is rare to Close a Client, as the Client is meant to be long-lived and shared between many goroutines.
 	// 逆に、プロセスの寿命 > コネクションプールの寿命なら、明示的にCloseしないとleakが生じる
-	kvs, err := platform.InitRedis(cfg)
-	if err != nil {
-		log.Fatalf("Failed to init Redis: %v", err)
+	var postService *service.PostService
+	if kvs, err := platform.InitRedis(cfg); err != nil {
+		// Redisは任意依存として、接続できなければcache無しで起動を継続する
+		log.Printf("Failed to init Redis, running without cache: %v", err)
+		postService = service.NewPostService(postRepo, repository.NewNoopPostCache())
+	} else {
+		postService = service.NewPostService(postRepo, repository.NewPostCache(kvs))
 	}
 
-	postRepo := repository.NewPostRepo(db)
-	postCache := repository.NewPostCache(kvs)
-	postService := service.NewPostService(postRepo, postCache)
 	postHandler := handler.NewPostHandler(postService)
 	router := handler.NewRouter(postHandler)
 

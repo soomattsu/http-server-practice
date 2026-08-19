@@ -12,9 +12,9 @@ type Config struct {
 	MySQLPassword string `env:"MYSQL_PASSWORD,notEmpty"`
 	MySQLHost     string `env:"MYSQL_HOST" envDefault:"localhost"`
 	MySQLPort     string `env:"MYSQL_PORT,notEmpty"`
-	RedisHost     string `env:"REDIS_HOST" envDefault:"localhost"`
-	RedisPort     string `env:"REDIS_PORT,notEmpty"`
-	RedisPassword string `env:"REDIS_PASSWORD,notEmpty"`
+	RedisHost     string `env:"REDIS_HOST"`
+	RedisPort     string `env:"REDIS_PORT"`
+	RedisPassword string `env:"REDIS_PASSWORD"`
 }
 
 func LoadCfg() *Config {
