@@ -4,6 +4,7 @@ go 1.26.5
 
 require (
 	github.com/DataDog/dd-trace-go/contrib/gorm.io/gorm.v1/v2 v2.9.2
+	github.com/DataDog/dd-trace-go/contrib/log/slog/v2 v2.9.2
 	github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.9.2
 	github.com/DataDog/dd-trace-go/v2 v2.9.2
 	github.com/caarlos0/env/v11 v11.4.1

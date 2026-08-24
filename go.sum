@@ -34,6 +34,8 @@ github.com/DataDog/dd-trace-go/contrib/database/sql/v2 v2.9.2 h1:MYKviIuqWBeuGJT
 github.com/DataDog/dd-trace-go/contrib/database/sql/v2 v2.9.2/go.mod h1:1igX+zKvo6Gx+DbvbCq9K4vzQJJqa1DgSjUuClxtPrA=
 github.com/DataDog/dd-trace-go/contrib/gorm.io/gorm.v1/v2 v2.9.2 h1:c4y+jWwN/0kNnINfSCZTUfqXtlAXbgkdwjTsPb2o6N8=
 github.com/DataDog/dd-trace-go/contrib/gorm.io/gorm.v1/v2 v2.9.2/go.mod h1:jfMXSY+X29fVNqpnOeFanLA6N+8Mq4LDNL0pBUO+LXI=
+github.com/DataDog/dd-trace-go/contrib/log/slog/v2 v2.9.2 h1:i7O1iQm9wQ6lFnY7xmyi/yn2/4TPApgic7PdDsV1ivs=
+github.com/DataDog/dd-trace-go/contrib/log/slog/v2 v2.9.2/go.mod h1:w5JjuwX9YqFrHPhk0ASk49oQfx05y4HbfWpHGm02JYE=
 github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.9.2 h1:POcBp+e5k0kg8ugA6KzFNREopKRTKs4+9SoiNQN0m5Y=
 github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.9.2/go.mod h1:7pUE3Ha9Mc43N/8yFOaPkCAFtgK6ecQv+HKiG4fSQbI=
 github.com/DataDog/dd-trace-go/v2 v2.9.2 h1:JoYZ9lZLCyBeRE6sRvaBXSe8AGrGySfbnB/BMoHQwwA=

@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	slogtrace "github.com/DataDog/dd-trace-go/contrib/log/slog/v2"
 	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 
 	"github.com/soomattsu/http-server-practice/internal/platform"
@@ -27,6 +29,10 @@ func main() {
 		log.Printf("Failed to start datadog tracer: %v", err)
 	}
 	defer tracer.Stop()
+
+	// ログ出力を"JSON形式で標準出力する計装付きの構造化ログ"に一元化する（標準のlog pkgも含む）
+	// slogに渡されるctxにspanが存在していれば、ログのJSONにdd.trace_id, dd.span_idの2keyを追記してくれる
+	slog.SetDefault(slog.New(slogtrace.NewJSONHandler(os.Stdout, nil)))
 
 	// *gorm.DB(*sql.DB)の寿命＝プロセスの寿命というライブラリ側設計なので、通常のサーバーアプリでは明示的にCloseしなくていい
 	// - The returned DB is safe for concurrent use by multiple goroutines and maintains its own pool of idle connections. Thus, the Open function should be called just once. It is rarely necessary to close a DB.

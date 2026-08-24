@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -52,6 +53,10 @@ func (h *PostHandler) ListPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// slogのハンドラを計装付きにしているので、ctxからspan(httptraceが開始)を参照してtrace_id, span_idをログに挿入する
+	// 第3引数以降は可変長で、JSONログに追記するAttr（key-value形式のフィールド）群を指定
+	slog.InfoContext(r.Context(), "listed post", "count", len(posts))
+
 	// 出力用structへ変換
 	out := make([]postsOutput, len(posts))
 	for i := range len(posts) {
@@ -93,6 +98,8 @@ func (h *PostHandler) GetPost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Server error: failed to get Post", http.StatusInternalServerError)
 		return
 	}
+
+	slog.InfoContext(r.Context(), "fetched post", "post_id", id)
 
 	// 出力用structへ変換
 	out := postsOutput{
