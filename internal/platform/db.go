@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 
+	gormtrace "github.com/DataDog/dd-trace-go/contrib/gorm.io/gorm.v1/v2"
+
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -24,6 +26,13 @@ func InitMySQL(cfg *Config) (*gorm.DB, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to open MySQL session: %v", err)
+	}
+
+	// gormのpluginとしてtracerの利用を宣言
+	// -> gormの各処理のbefore/after hookに、spanの開始/終了を自動的に差し込んでくれる
+	// HTTP requestのspanが親になる（親子関係の解決にはhandlerからrepositoryまで伝播するctxを使う）
+	if err := db.Use(gormtrace.NewTracePlugin()); err != nil {
+		return nil, fmt.Errorf("failed to register gorm trace plugin: %v", err)
 	}
 
 	/*

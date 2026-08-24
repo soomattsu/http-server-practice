@@ -10,6 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	httptrace "github.com/DataDog/dd-trace-go/contrib/net/http/v2"
+	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+
 	"github.com/soomattsu/http-server-practice/internal/platform"
 	"github.com/soomattsu/http-server-practice/internal/post/handler"
 	"github.com/soomattsu/http-server-practice/internal/post/repository"
@@ -18,6 +21,13 @@ import (
 
 func main() {
 	cfg := platform.LoadCfg()
+
+	// Datadog用環境変数（DD_ENV/DD_SERVICE/DD_VERSION etc）を自動的に読み込む
+	// デフォルトの送信先はlocalhost:8126（datadog-agent sidecar）で、同一Task内のコンテナなので繋がる
+	if err := tracer.Start(); err != nil {
+		log.Printf("Failed to start datadog tracer: %v", err)
+	}
+	defer tracer.Stop()
 
 	// *gorm.DB(*sql.DB)の寿命＝プロセスの寿命というライブラリ側設計なので、通常のサーバーアプリでは明示的にCloseしなくていい
 	// - The returned DB is safe for concurrent use by multiple goroutines and maintains its own pool of idle connections. Thus, the Open function should be called just once. It is rarely necessary to close a DB.
@@ -51,7 +61,10 @@ func main() {
 	s := &http.Server{
 		Addr: ":8080",
 		// 自前のServeMuxを挿入。nilの場合、ルーティングにはDefaultServeMuxが使われる
-		Handler: router,
+		// dd-trace-goのミドルウェアでwrapして渡すことで、リクエストごとにserver spanが生成される
+		// - 第二引数: service名。空だとDD_SERVICEの値
+		// - 第三引数: resource名。空だとreq.Patternから"METHOD /resource/{path-param}"を自動生成
+		Handler: httptrace.WrapHandler(router, "", ""),
 		// req headerの読み込みに許される時間
 		ReadHeaderTimeout: 1 * time.Second,
 		// req全体の読み込みに許される時間
