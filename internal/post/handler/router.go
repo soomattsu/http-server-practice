@@ -5,15 +5,18 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	httptrace "github.com/DataDog/dd-trace-go/contrib/net/http/v2"
 )
 
-// NewRouter はすべてのルーティングを統合したServeMuxを返す。
+// NewRouter はすべてのルーティングを統合したServeMux（計装済み）を返す。
 // TODO: 他のモデル用handlerが増えるなら、引数を抽象化する（今はPostのみ）
 func NewRouter(post *PostHandler) http.Handler {
-	router := http.NewServeMux()
+	// span作成前にルーティングを解決する
+	// 通常のServeMuxをWrapHandlerでwrapすると、span作成時にルーティングが確定していないので汎用resource名になってしまう
+	router := httptrace.NewServeMux()
 	router.HandleFunc("/healthz", healthz)
 	router.HandleFunc("/superslow", superslow)
-	// router = RegisterPhase1(router)
 	router = post.Register(router)
 	return router
 }

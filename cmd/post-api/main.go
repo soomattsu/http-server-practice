@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	httptrace "github.com/DataDog/dd-trace-go/contrib/net/http/v2"
 	"github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
 
 	"github.com/soomattsu/http-server-practice/internal/platform"
@@ -60,11 +59,8 @@ func main() {
 	// タイムアウトはコネクションごとに有効
 	s := &http.Server{
 		Addr: ":8080",
-		// 自前のServeMuxを挿入。nilの場合、ルーティングにはDefaultServeMuxが使われる
-		// dd-trace-goのミドルウェアでwrapして渡すことで、リクエストごとにserver spanが生成される
-		// - 第二引数: service名。空だとDD_SERVICEの値
-		// - 第三引数: resource名。空だとreq.Patternから"METHOD /resource/{path-param}"を自動生成
-		Handler: httptrace.WrapHandler(router, "", ""),
+		// 自前のServeMux（計装済）を挿入。nilの場合、ルーティングにはDefaultServeMuxが使われる
+		Handler: router,
 		// req headerの読み込みに許される時間
 		ReadHeaderTimeout: 1 * time.Second,
 		// req全体の読み込みに許される時間

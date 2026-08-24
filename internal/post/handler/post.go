@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"time"
 
+	httptrace "github.com/DataDog/dd-trace-go/contrib/net/http/v2"
+
 	"github.com/soomattsu/http-server-practice/internal/model"
 	"github.com/soomattsu/http-server-practice/internal/post/service"
 )
@@ -22,7 +24,7 @@ func NewPostHandler(svc *service.PostService) *PostHandler {
 	return &PostHandler{svc: svc}
 }
 
-func (h *PostHandler) Register(mux *http.ServeMux) *http.ServeMux {
+func (h *PostHandler) Register(mux *httptrace.ServeMux) *httptrace.ServeMux {
 	mux.HandleFunc("GET /posts", h.ListPost)
 	mux.HandleFunc("GET /posts/{id}", h.GetPost)
 	mux.HandleFunc("POST /posts", h.CreatePost)
