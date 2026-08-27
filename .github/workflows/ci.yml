@@ -51,13 +51,27 @@ jobs:
           aws-region: ap-northeast-1
           mask-aws-account-id: true
 
-      - name: Build docker image
+      - name: Login to ECR
+        id: ecr # 出力値や実行結果を、job内の後続stepから参照するための識別子
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+
+      - name: Compose image tag
+        id: tagging
         run: |
+            DATE=$(TZ=Asia/Tokyo date +%Y%m%d)
+            SHA=${GITHUB_SHA::7}
+            echo "tag=${DATE}-${SHA}" >> "$GITHUB_OUTPUT"
+            echo "image=${{ steps.ecr.outputs.registry }}/tf-practice/${{ matrix.service }}-api" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push docker image
+        run: |
+            IMAGE="${{ steps.tagging.outputs.image }}:${{ steps.tagging.outputs.tag }}"
             docker build \
               --build-arg SERVICE_NAME=${{ matrix.service }} \
               -f docker/Dockerfile \
-              -t ${{ matrix.service }}-api:${{ github.sha }} \
+              -t "$IMAGE" \
               .
+            docker push "$IMAGE"
 
   # GitHubからJWTを発行し、payload上のiss/aud/subを表示する(デバッグ用・testと並列実行)
   print-claim:
