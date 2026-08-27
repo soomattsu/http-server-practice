@@ -14,17 +14,26 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - name: Checkout repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Go runtime
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: true
+
       - name: Run tests
         run: go test ./...
+
   # test job成功後、各serviceに対してdocker build実行
   build:
     runs-on: ubuntu-latest
     needs: test
+    permissions:
+      id-token: write
+      # jobレベルのpermissions定義はworkflowレベルの定義を"置換"するので、contents: readの明示が必要
+      contents: read
     strategy:
       fail-fast: true
       # matrix.<変数>の組み合わせ分jobが走る -> ここでは2回
@@ -32,7 +41,16 @@ jobs:
         service: [document, post]
         # version: [v1, v2, v3] <- このような変数がある場合、2service * 3versionで6回jobが走る
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Checkout repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{secrets.AWS_ROLE_ARN}}
+          aws-region: ap-northeast-1
+          mask-aws-account-id: true
+
       - name: Build docker image
         run: |
             docker build \
@@ -40,18 +58,24 @@ jobs:
               -f docker/Dockerfile \
               -t ${{ matrix.service }}-api:${{ github.sha }} \
               .
+
   # GitHubからJWTを発行し、payload上のiss/aud/subを表示する(デバッグ用・testと並列実行)
   print-claim:
     runs-on: ubuntu-latest
     permissions:
+      # permissinos.id-token = writeにより、JWT発行用の環境変数が埋め込まれる
+      # - ACTIONS_ID_TOKEN_REQUEST_URL: job実行毎に払い出される専用URL
+      # - ACTIONS_ID_TOKEN_REQUEST_TOKEN: ↑を叩くための短命bearer token
       id-token: write
     steps:
       - name: Print OIDC claim
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
+          # 1. runnerがACTIONS_ID_TOKEN_REQUEST_URL宛にJWT発行をリクエストする
+          # 2. GitHubがACTIONS_ID_TOKEN_REQUEST_TOKENから実行jobを照合し、JWT payloadのclaimを構築し、秘密鍵で署名して返す
           script: |
             const token = await core.getIDToken('sts.amazonaws.com')
-            const payload = token.split('.')[1] // JWT: "<header>.<payload>.<signature>"
+            const payload = token.split('.')[1]
             const { iss, aud, sub } = JSON.parse(
               Buffer.from(payload, 'base64url').toString()
             )
