@@ -1,23 +1,67 @@
 name: CI
-
+# mainへのpush/手動によってworkflowがトリガー
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
+# トップレベルのpermissionsはworkflow全体の既定値で、jobで上書き可能
 permissions:
   contents: read
 
 jobs:
+  # repoをrunner上にcheckout -> 指定versionのgo runtimeを初期化 -> go testを実行
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: true
-
       - name: Run tests
         run: go test ./...
+  # test job成功後、各serviceに対してdocker build実行
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      fail-fast: true
+      # matrix.<変数>の組み合わせ分jobが走る -> ここでは2回
+      matrix:
+        service: [document, post]
+        # version: [v1, v2, v3] <- このような変数がある場合、2service * 3versionで6回jobが走る
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build docker image
+        run: |
+            docker build \
+              --build-arg SERVICE_NAME=${{ matrix.service }} \
+              -f docker/Dockerfile \
+              -t ${{ matrix.service }}-api:${{ github.sha }} \
+              .
+  # GitHubからJWTを発行し、payload上のiss/aud/subを表示する(デバッグ用・testと並列実行)
+  print-claim:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - name: Print OIDC claim
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const token = await core.getIDToken('sts.amazonaws.com')
+            const payload = token.split('.')[1] // JWT: "<header>.<payload>.<signature>"
+            const { iss, aud, sub } = JSON.parse(
+              Buffer.from(payload, 'base64url').toString()
+            )
+            // workflow実行結果ページに表を描画
+            core.summary
+              .addHeading('OIDC claims', 3)
+              .addTable([
+                [{data: 'claim', header: true}, {data:'value', header:true}],
+                ['iss', iss],
+                ['aud', aud],
+                ['sub', sub]
+              ])
+              .write()
