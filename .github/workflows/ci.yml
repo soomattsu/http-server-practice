@@ -85,7 +85,6 @@ jobs:
     needs: [prepare, build]
     permissions:
       id-token: write
-      contents: read
     env:
       CLUSTER: tf-practice
       SERVICE: tf-practice-document
@@ -139,6 +138,71 @@ jobs:
           cluster: ${{ env.CLUSTER }}
           service: ${{ env.SERVICE }}
           wait-for-service-stability: true
+
+  deploy-post:
+    runs-on: ubuntu-latest
+    needs: [prepare, build]
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      CLUSTER: tf-practice
+      SERVICE: tf-practice-post
+      CONTAINER: post
+    steps:
+      # app repo側のappspec.yamlを読むためにcheckoutが必要
+      - name: Checkout repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Configure AWS credentials (entrypoint)
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{secrets.AWS_ROLE_ARN}}
+          aws-region: ap-northeast-1
+          mask-aws-account-id: true
+
+      - name: Login to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+
+      - name: Configure AWS credentials (role chain)
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          role-to-assume: ${{secrets.AWS_PROD_CD_ROLE_ARN}}
+          role-chaining: true
+          aws-region: ap-northeast-1
+          mask-aws-account-id: true
+
+      - name: Render task definition
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@138c24f321fdbdf7edee4a685519d253cae2cdea # v1.9.0
+        with:
+          task-definition-family: ${{ env.SERVICE }}
+          container-name: ${{ env.CONTAINER }}
+          image: ${{ steps.ecr.outputs.registry }}/tf-practice/${{ env.CONTAINER }}-api:${{ needs.prepare.outputs.tag }}
+          # Datadogの統一タグ（unified service tag）のうち、versionを、新しくbuildしたimageのtagに差し替える
+          # deploy毎に置換しない場合、B/Gにも関わらず、新旧各々のテレメトリをDatadog上で識別できない（USTが新旧間で同一になってしまうため）
+          # trace用のタグ（dd-trace-goが読む）
+          environment-variables: |
+            DD_VERSION=${{ needs.prepare.outputs.tag }}
+          # metrics用のタグ（datadog-agentが読む）
+          docker-labels: |
+            com.datadoghq.tags.version=${{ needs.prepare.outputs.tag }}
+          # log用のタグ（fluent-bitがメタデータとして付与してDatadogに送る）
+          log-configuration-options: |
+            dd_tags=env:prod,version:${{ needs.prepare.outputs.tag }}
+
+      # ecs:DescribeServicesでECS Serviceの情報を取得し、deployment_controller.typeがCODE_DEPLOYなので、CodeDeployにデプロイ処理を委譲する
+      - name: Deploy to ECS via CodeDeploy
+        uses: aws-actions/amazon-ecs-deploy-task-definition@c465972ecbd160473f22e683363b422a5412a3de # v2.6.3
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          cluster: ${{ env.CLUSTER }}
+          service: ${{ env.SERVICE }}
+          # Terraformで作成したCodeDeployリソースを指定
+          codedeploy-application: tf-practice-post
+          codedeploy-deployment-group: tf-practice-post
+          wait-for-service-stability: false # 手動ロールバックテスト用に、jobは10分間のB/G完全移行を待たずに終了させる
 
   # --- debug ---
   # GitHubからJWTを発行し、payload上のiss/aud/subを表示する(prepare, testと並列実行)

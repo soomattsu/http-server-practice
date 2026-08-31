@@ -1,0 +1,11 @@
+# CodeDeployが「何をデプロイするか」を決定するための設定ファイル
+version: 0.0
+Resources:
+  - TargetService:
+      Type: AWS::ECS::Service
+      Properties:
+        TaskDefinition: <to be replaced by GHA>
+        LoadBalancerInfo:
+          # 新verのTaskSetのうち、どのコンテナ/portがtrafficの切り替え先になるか
+          ContainerName: post
+          ContainerPort: 8080
